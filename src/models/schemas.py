@@ -126,9 +126,13 @@ class DocumentSchema(BaseModel):
 
 class DocumentDetailSchema(DocumentSchema):
     content_text: Optional[str] = None
-    doc_metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata_")
+    doc_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        validation_alias="metadata_",
+        serialization_alias="doc_metadata",
+    )
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = {"from_attributes": True}
 
 
 class TimelineEventSchema(BaseModel):
