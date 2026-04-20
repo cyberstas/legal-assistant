@@ -12,7 +12,7 @@ and generate evidence briefs and cross-examination plans.
 | Capability | Details |
 |---|---|
 | **Document ingestion** | PDFs, images (OCR), emails (`.eml`), plain text, transcripts, police reports, iMessage exports |
-| **RAG search** | ChromaDB vector store + OpenAI embeddings for semantic retrieval over your entire corpus |
+| **RAG search** | PostgreSQL + pgvector for vector embeddings, with OpenAI embeddings for semantic retrieval over your entire corpus |
 | **Timeline builder** | LLM-powered extraction of dated events from every document, stored and queryable |
 | **Fact extractor** | Discrete legal facts extracted per document, categorised by topic and relevance |
 | **Evidence analyser** | Gather and synthesise evidence for a specific argument or motion topic |
@@ -38,7 +38,7 @@ legal-assistant/
 │   │   ├── email_processor.py     # .eml parsing
 │   │   └── text_processor.py      # Plain text / transcripts
 │   ├── storage/
-│   │   ├── vector_store.py        # ChromaDB via LangChain
+│   │   ├── vector_store.py        # pgvector via LangChain (langchain-postgres)
 │   │   └── document_store.py      # SQLAlchemy CRUD + vector coordination
 │   └── analysis/
 │       ├── timeline.py            # LLM event extraction
@@ -54,9 +54,9 @@ legal-assistant/
 ```
 
 **Storage:**
-- **SQLite** (default) or any SQLAlchemy-compatible DB for structured metadata, timeline events,
-  and extracted facts.
-- **ChromaDB** (persistent on disk) for vector embeddings used in semantic search.
+- **PostgreSQL** for both structured metadata (timeline events, extracted facts) and vector
+  embeddings (via the `pgvector` extension).  A single `DATABASE_URL` is used for both the
+  SQLAlchemy ORM and the LangChain `PGVector` store.
 - Raw uploaded files are stored in `./data/uploads/`.
 
 ---
@@ -71,7 +71,18 @@ If you don't have [uv](https://docs.astral.sh/uv/) installed yet:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 1. Install dependencies
+### 1. Start PostgreSQL
+
+Use Docker Compose to spin up a PostgreSQL instance with the `pgvector` extension pre-installed:
+
+```bash
+docker compose up -d
+```
+
+This starts a PostgreSQL 16 container (image `pgvector/pgvector:pg16`) on port `5432` with the
+`legal_assistant` database ready to use.
+
+### 2. Install dependencies
 
 ```bash
 make install
@@ -90,18 +101,18 @@ brew install tesseract
 sudo apt-get install tesseract-ocr
 ```
 
-### 2. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY
+# Edit .env and set OPENAI_API_KEY (and DATABASE_URL if not using the Docker Compose default)
 ```
 
-The most important setting is `OPENAI_API_KEY`.  Document ingestion (text extraction) works
-without it, but all LLM features (timeline extraction, fact extraction, RAG queries, evidence
-analysis, cross-examination planning) require it.
+The most important settings are `OPENAI_API_KEY` and `DATABASE_URL`.  Document ingestion
+(text extraction) works without `OPENAI_API_KEY`, but all LLM features (timeline extraction,
+fact extraction, RAG queries, evidence analysis, cross-examination planning) require it.
 
-### 3. Run the server
+### 4. Run the server
 
 ```bash
 make dev
@@ -249,9 +260,8 @@ LLM-dependent tests are automatically skipped when `langchain_core` is not insta
 | Variable | Default | Description |
 |---|---|---|
 | `OPENAI_API_KEY` | *(required for LLM features)* | OpenAI API key |
-| `CHROMA_PERSIST_DIR` | `./data/chroma` | ChromaDB storage directory |
+| `DATABASE_URL` | `postgresql+psycopg://postgres:postgres@localhost:5432/legal_assistant` | PostgreSQL connection string (used for both ORM tables and pgvector embeddings) |
 | `UPLOAD_DIR` | `./data/uploads` | Uploaded file storage |
-| `DATABASE_URL` | `sqlite:///./data/legal_assistant.db` | SQLAlchemy DB URL |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
 | `LLM_MODEL` | `gpt-4o` | OpenAI chat model for analysis |
 | `TESSERACT_CMD` | `/usr/bin/tesseract` | Path to tesseract binary |

@@ -1,4 +1,4 @@
-"""Vector store wrapper around ChromaDB + LangChain embeddings.
+"""Vector store wrapper around PostgreSQL + pgvector + LangChain embeddings.
 
 Stores document chunks with metadata so they can be retrieved via
 semantic similarity search (RAG).
@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStore:
-    """Thin wrapper around a persistent ChromaDB collection."""
+    """Thin wrapper around a PGVector collection backed by PostgreSQL."""
 
     COLLECTION_NAME = "legal_documents"
 
-    def __init__(self, persist_dir: str, embedding_model: str, openai_api_key: str) -> None:
-        self._persist_dir = persist_dir
+    def __init__(self, connection_string: str, embedding_model: str, openai_api_key: str) -> None:
+        self._connection_string = connection_string
         self._embedding_model = embedding_model
         self._openai_api_key = openai_api_key
         self._collection = None
@@ -41,12 +41,13 @@ class VectorStore:
 
     def _get_collection(self):
         if self._collection is None:
-            from langchain_chroma import Chroma
+            from langchain_postgres.vectorstores import PGVector
 
-            self._collection = Chroma(
+            self._collection = PGVector(
+                embeddings=self._get_embeddings(),
                 collection_name=self.COLLECTION_NAME,
-                embedding_function=self._get_embeddings(),
-                persist_directory=self._persist_dir,
+                connection=self._connection_string,
+                use_jsonb=True,
             )
         return self._collection
 
@@ -99,7 +100,7 @@ class VectorStore:
     ) -> List[Dict[str, Any]]:
         """Semantic search over stored chunks.
 
-        Returns list of {page_content, metadata, score} dicts.
+        Returns list of {text, metadata, score} dicts.
         """
         collection = self._get_collection()
         kwargs: Dict[str, Any] = {"k": top_k}
@@ -118,5 +119,21 @@ class VectorStore:
 
     def delete_document_chunks(self, document_id: int) -> None:
         """Remove all chunks belonging to a given document."""
+        from sqlalchemy import text
+
         collection = self._get_collection()
-        collection.delete(where={"document_id": document_id})
+        # _make_sync_session is langchain_postgres' internal session factory.
+        # There is no public API for metadata-filtered deletion in PGVector, so
+        # we use a direct SQL DELETE against the underlying tables.
+        with collection._make_sync_session() as session:
+            session.execute(
+                text(
+                    "DELETE FROM langchain_pg_embedding e "
+                    "USING langchain_pg_collection c "
+                    "WHERE e.collection_id = c.uuid "
+                    "AND c.name = :name "
+                    "AND (e.cmetadata->>'document_id')::int = :doc_id"
+                ),
+                {"name": self.COLLECTION_NAME, "doc_id": document_id},
+            )
+            session.commit()

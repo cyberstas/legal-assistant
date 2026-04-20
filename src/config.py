@@ -1,6 +1,5 @@
 """Application configuration loaded from environment variables."""
 
-import os
 from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,9 +12,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     # Storage paths
-    chroma_persist_dir: str = "./data/chroma"
     upload_dir: str = "./data/uploads"
-    database_url: str = "sqlite:///./data/legal_assistant.db"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/legal_assistant"
 
     # Models
     embedding_model: str = "text-embedding-3-small"
@@ -35,12 +33,7 @@ class Settings(BaseSettings):
 
     def ensure_dirs(self) -> None:
         """Create required storage directories if they don't exist."""
-        for directory in [self.chroma_persist_dir, self.upload_dir]:
-            Path(directory).mkdir(parents=True, exist_ok=True)
-        # Ensure the directory for SQLite exists
-        db_path = self.database_url.replace("sqlite:///", "")
-        if db_path:
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.upload_dir).mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()
