@@ -44,11 +44,13 @@ legal-assistant/
 │       ├── timeline.py            # LLM event extraction
 │       ├── fact_extractor.py      # LLM fact extraction
 │       └── evidence_analyzer.py   # RAG query, evidence brief, cross-exam plan
-└── tests/
-    ├── test_processors.py
-    ├── test_storage.py
-    ├── test_api.py
-    └── test_analysis.py
+├── tests/
+│   ├── test_processors.py
+│   ├── test_storage.py
+│   ├── test_api.py
+│   └── test_analysis.py
+├── Makefile                       # Common dev tasks (install, dev, test, lint, clean)
+└── pyproject.toml                 # Project metadata and dependencies (uv)
 ```
 
 **Storage:**
@@ -61,11 +63,22 @@ legal-assistant/
 
 ## Quick Start
 
+### 0. Install uv
+
+If you don't have [uv](https://docs.astral.sh/uv/) installed yet:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 ### 1. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+make install
 ```
+
+This runs `uv sync --extra dev`, which creates a virtual environment (`.venv/`) and installs
+all runtime and development dependencies declared in `pyproject.toml`.
 
 For OCR on images you also need Tesseract installed on your system:
 
@@ -91,7 +104,7 @@ analysis, cross-examination planning) require it.
 ### 3. Run the server
 
 ```bash
-uvicorn src.main:app --reload
+make dev
 ```
 
 The API is now running at `http://localhost:8000`.
@@ -205,11 +218,29 @@ GET /analysis/facts?category=custody&relevance=high
 ## Running Tests
 
 ```bash
-pytest tests/ -v
+make test
+```
+
+Or directly:
+
+```bash
+uv run pytest tests/ -v
 ```
 
 Tests use an in-memory SQLite database and do not require an OpenAI API key.
 LLM-dependent tests are automatically skipped when `langchain_core` is not installed.
+
+---
+
+## Makefile Targets
+
+| Target | Description |
+|---|---|
+| `make install` | Install all runtime + dev dependencies via `uv sync --extra dev` |
+| `make dev` | Start the FastAPI dev server with hot-reload on `http://localhost:8000` |
+| `make test` | Run the full test suite with pytest |
+| `make lint` | Run ruff linting checks on `src/` and `tests/` |
+| `make clean` | Remove `__pycache__`, `.pyc` files, and build artifacts |
 
 ---
 
