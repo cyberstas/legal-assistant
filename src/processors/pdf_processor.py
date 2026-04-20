@@ -47,7 +47,11 @@ class PDFProcessor:
             doc.close()
         except Exception as exc:
             logger.warning("PyMuPDF failed (%s), trying pdfplumber", exc)
-            pages = self._pdfplumber_extract(file_path)
+            try:
+                pages = self._pdfplumber_extract(file_path)
+            except Exception as fallback_exc:
+                logger.warning("pdfplumber also failed for %s: %s", file_path.name, fallback_exc)
+                pages = []
             doc_metadata["source"] = file_path.name
 
         full_text = "\n\n".join(p["text"] for p in pages if p["text"])

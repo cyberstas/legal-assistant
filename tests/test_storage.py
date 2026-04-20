@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.models.schemas import Base, Document, DocumentType, ProcessingStatus, TimelineEvent, ExtractedFact
 from src.storage.document_store import DocumentStore
@@ -13,7 +14,11 @@ from src.storage.document_store import DocumentStore
 @pytest.fixture()
 def db_session():
     """In-memory SQLite session for each test."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()

@@ -101,11 +101,12 @@ class DocumentStore:
         file_path = Path(settings.upload_dir) / doc.filename
         if file_path.exists():
             file_path.unlink()
-        # Remove vector store chunks
-        try:
-            get_vector_store().delete_document_chunks(document_id)
-        except Exception as exc:
-            logger.warning("Could not delete vector chunks for doc %d: %s", document_id, exc)
+        # Remove vector store chunks (only when vector storage is enabled)
+        if settings.openai_api_key:
+            try:
+                get_vector_store().delete_document_chunks(document_id)
+            except Exception as exc:
+                logger.warning("Could not delete vector chunks for doc %d: %s", document_id, exc)
         self._db.delete(doc)
         self._db.commit()
         return True
