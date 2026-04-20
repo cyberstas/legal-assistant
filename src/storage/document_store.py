@@ -28,7 +28,7 @@ def get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
         _vector_store = VectorStore(
-            persist_dir=settings.chroma_persist_dir,
+            connection_string=settings.database_url,
             embedding_model=settings.embedding_model,
             openai_api_key=settings.openai_api_key,
         )
